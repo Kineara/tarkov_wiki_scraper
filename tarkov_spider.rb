@@ -1,5 +1,8 @@
 require 'kimurai'
 require 'nokogiri'
+require 'webdrivers'
+
+# @driver = Selenium::WebDriver.for :chrome
 
 class TarkovSpider < Kimurai::Base
   @name = 'tarkov_spider'
@@ -10,8 +13,8 @@ class TarkovSpider < Kimurai::Base
   }
 
   def parse(response, url:, data: {})
-    #links = getLinks(response)
-    links = ['/wiki/KAC_QDC_5.56x45_3-Prong_Flash_Eliminator']
+    links = getLinks(response)
+    # links = ['/wiki/HK417_7.62x51_16.5_inch_barrel']
     scrapeLinks(links)
   end
 
@@ -21,7 +24,7 @@ class TarkovSpider < Kimurai::Base
     links.each do |mod|
       scraped_links.push(mod['href'])
     end
-    scraped_links 
+    scraped_links
   end
 
   def scrapeLinks(links)
@@ -46,27 +49,31 @@ class TarkovSpider < Kimurai::Base
 
         attribute_value = row.css('td.va-infobox-content').text.strip.downcase
         item_hash.store(attribute_name, attribute_value) if attribute_name.length > 0 && attribute_value.length > 0
-        
-        compatibles = []
-        doc.css('div.wds-tab__content.wds-is-current p a').each do |compatible|
-          compatibles.push(compatible.text.downcase)
-        end
-
-        attachment_points = []
-        doc.css('div.wds-tabs__wrapper.with-bottom-border ul li div a').each do |attachment_point|
-          attachment_points.push(attachment_point.text.downcase) if attachment_point.text.downcase != "compatibility"
-        end
-
-        if compatibles.length > 0
-          item_hash.store('compatible_with', compatibles)
-        end
-
-        if attachment_points.length > 0
-          item_hash.store('attachment_points', attachment_points)
-        end
       end
 
-      save_to 'scraped_data.json', item_hash, format: :pretty_json, position: false if item_hash.keys.length > 1
+      # Add mod parts
+      mods = {}
+      categories_index = {}
+
+      # Add mod category names
+      doc.css('div.wds-tabs__wrapper.with-bottom-border ul li div a').each_with_index do |mod, index|
+        mod_category = mod.text.gsub(' ', '_').downcase
+        mods.store(mod_category, {})
+        categories_index.store(index, mod_category)
+      end
+
+      # Add mod category items
+      doc.css('div.tabber.wds-tabber div.wds-tab__content').each_with_index do |div, index|
+        items = []
+        div.css('a').each do |item|
+          items.push(item.text.downcase)
+        end
+        mods["#{categories_index.fetch(index)}"] = items
+      end
+
+      item_hash.store('mods', mods) if mods.keys.length > 0
+
+      save_to 'scraped_data.json', item_hash, format: :pretty_json, position: false if item_hash.keys.length > 1 && item_hash["name"] != "weapon mods"
     end
   end
 end
