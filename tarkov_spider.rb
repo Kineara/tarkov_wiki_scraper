@@ -1,8 +1,4 @@
 require 'kimurai'
-require 'nokogiri'
-require 'webdrivers'
-
-# @driver = Selenium::WebDriver.for :chrome
 
 class TarkovSpider < Kimurai::Base
   @name = 'tarkov_spider'
@@ -14,7 +10,7 @@ class TarkovSpider < Kimurai::Base
 
   def parse(response, url:, data: {})
     links = getLinks(response)
-    # links = ['/wiki/HK417_7.62x51_16.5_inch_barrel']
+    # links = ['/wiki/TT_7.62x25_tt-105_8-round_magazine']
     scrapeLinks(links)
   end
 
@@ -47,8 +43,19 @@ class TarkovSpider < Kimurai::Base
         attribute_name.gsub!(' ', '_')
         attribute_name.gsub!(' ', '_')
 
-        attribute_value = row.css('td.va-infobox-content').text.strip.downcase
-        item_hash.store(attribute_name, attribute_value) if attribute_name.length > 0 && attribute_value.length > 0
+        if row.css('td.va-infobox-content').css('a').length > 1 || attribute_name == 'sold_by'
+
+          attribute_lines = []
+          row.css('td.va-infobox-content').css('a').each do |line|
+            attribute_lines.push(line.text.downcase)
+          end
+          item_hash.store(attribute_name, attribute_lines)
+
+        else
+          attribute_value = row.css('td.va-infobox-content').text.strip.downcase
+          item_hash.store(attribute_name, attribute_value) if attribute_name.length > 0 && attribute_value.length > 0
+
+        end
       end
 
       # Add mod parts
@@ -73,7 +80,10 @@ class TarkovSpider < Kimurai::Base
 
       item_hash.store('mods', mods) if mods.keys.length > 0
 
-      save_to 'scraped_data.json', item_hash, format: :pretty_json, position: false if item_hash.keys.length > 1 && item_hash["name"] != "weapon mods"
+      if item_hash.keys.length > 1 && item_hash['name'] != 'weapon mods'
+        save_to 'scraped_data.json', item_hash, format: :pretty_json,
+                                                position: false
+      end
     end
   end
 end
