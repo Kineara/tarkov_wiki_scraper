@@ -2,7 +2,10 @@
 
 Escape from Tarkov Wiki scraper for item data
 
+Tested and working with Weapons, Weapon Mods, and Armor Vests
+
 ## Known Issues
 
-- Mod categories marked "not implemented" in the wiki still show up as empty mod categories
-- Ammunition formatting needs fixed 
+- `/wiki/Ammunition` not yet supported due to nested ammunition types
+
+- Armor penalties attributes are rendered as one long string due to the pages using breakpoints instead of unordered lists to display them
