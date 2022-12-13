@@ -23,13 +23,12 @@ class TarkovSpider < Kimurai::Base
   end
 
   def getLinks(response)
-    keywords = ['']
     scraped_links = []
     response.css('table.wikitable').css('a').each do |link|
-      next unless unique?(:scraped_links, link['href'])
+      next unless unique?(:scraped_links, link['href']) 
       next if link['href'].include?('https')
 
-      scraped_links.push(link['href'])
+      scraped_links << link['href']
     end
     scraped_links
   end
@@ -60,7 +59,7 @@ class TarkovSpider < Kimurai::Base
         if table_row.css('td.va-infobox-content').css('li').length > 0
           attr_entries = []
           table_row.css('td.va-infobox-content').css('li').each do |line|
-            attr_entries.push(line.text.strip.downcase)
+            attr_entries << line.text.strip.downcase
           end
           attr_val = attr_entries
         else
@@ -82,16 +81,17 @@ class TarkovSpider < Kimurai::Base
           mod_names = []
 
           response.css('div.tabber.wds-tabber').css('div.wds-tab__content')[i].css('a').each do |mod_name|
-            mod_names.push(mod_name.text.strip.downcase)
+            mod_names << mod_name.text.strip.downcase
           end
 
           mods.store(mod_category, mod_names)
         end
+
         item_hash.store('mods', mods)
       end
 
       # Check that the item hash has more keys than just "name" before saving
-      items_array.push(item_hash) unless item_hash.keys.length < 2
+      items_array << item_hash unless item_hash.keys.length < 2
     end
     category_hash.store(items_category, items_array)
     save_to 'scraped_data.json', category_hash, format: :pretty_json, position: false
