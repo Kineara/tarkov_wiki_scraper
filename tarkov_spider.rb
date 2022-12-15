@@ -1,5 +1,7 @@
 require 'kimurai'
 
+#
+
 class TarkovSpider < Kimurai::Base
   @name = 'tarkov_spider'
   @engine = :mechanize
@@ -15,17 +17,21 @@ class TarkovSpider < Kimurai::Base
     ' ' => '_'
   }
 
+  @@exclude_list = %w[mechanic prapor therapist peacekeeper ragman skier fence jaeger]
+
   def parse(response, url:, data: {})
+
     # Add item category based on start_url page title
-    items_category = response.css('h1#firstHeading').text.strip.downcase
+    items_category = response.css('h1#firstHeading').text.strip.downcase.gsub(/\W/, @@text_substitutions)
     links = getLinks(response)
     scrapeLinks(links, items_category)
+
   end
 
   def getLinks(response)
     scraped_links = []
     response.css('table.wikitable').css('a').each do |link|
-      next unless unique?(:scraped_links, link['href']) 
+      next unless unique?(:scraped_links, link['href'])
       next if link['href'].include?('https')
 
       scraped_links << link['href']
@@ -33,9 +39,8 @@ class TarkovSpider < Kimurai::Base
     scraped_links
   end
 
-  def scrapeLinks(links, items_category)
-    category_hash = {}
-    items_array = []
+  def scrapeLinks(links, category)
+    attribs = []
 
     links.each do |link|
       item_hash = {}
@@ -45,10 +50,10 @@ class TarkovSpider < Kimurai::Base
 
       # Add name attribute from <h1> tag
       item_hash.store('name', response.css('h1#firstHeading').text.strip.downcase)
+      next if @@exclude_list.include?(item_hash['name'])
 
       # Generate attributes from page info table
       response.css('table.va-infobox-group').css('tr').each do |table_row|
-
         # Skip table row if the va-infobox-label class isn't present on a child <td/> element
         next if table_row.css('td.va-infobox-label').length == 0
 
@@ -67,6 +72,7 @@ class TarkovSpider < Kimurai::Base
         end
 
         item_hash.store(attr_name, attr_val) unless attr_name == ''
+        attribs << attr_name unless attr_name == ''
       end
 
       # Check for mod categories
@@ -89,12 +95,14 @@ class TarkovSpider < Kimurai::Base
 
         item_hash.store('mods', mods)
       end
-
       # Check that the item hash has more keys than just "name" before saving
-      items_array << item_hash unless item_hash.keys.length < 2
+      save_to "#{category}.json", item_hash, format: :pretty_json, position: false unless item_hash.keys.length < 2
     end
-    category_hash.store(items_category, items_array)
-    save_to 'scraped_data.json', category_hash, format: :pretty_json, position: false
+
+    # Save categorized attributes to their own json file
+    attribs_hash = {}
+    attribs_hash.store("#{category}_attributes", attribs.uniq)
+    save_to "attributes.json", attribs_hash, format: :pretty_json, position: false 
   end
 end
 
